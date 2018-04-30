@@ -18,7 +18,7 @@ double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
 // Set latency
-int latency = 100;
+int dt_latency = 100;
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -90,11 +90,11 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
           
-          // Reference trajectory points in absolute reference
+          // Reference trajectory points in global coordinates
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
           
-          // Initial state in absolute reference
+          // Initial state in global coordinates
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
@@ -123,18 +123,18 @@ int main() {
           double y_car = 0;
           double psi_car = 0;
           double v_car = v;
+          
+          // State estimation after latency in car reference
+          x_car += v_car * cos(psi_car) * dt_latency / 1000;
+          y_car += v_car * sin(psi_car) * dt_latency / 1000;
+          psi_car -= v_car / Lf * delta * dt_latency / 1000;
+          v_car += a * dt_latency / 1000;
 
-          // state after latency in car reference
-          x_car = x_car + v_car * cos(psi_car) * latency / 1000;
-          y_car = y_car + v_car * sin(psi_car) * latency / 1000;
-          psi_car = psi_car + v_car / Lf * delta * latency / 1000;
-          v_car = v_car + a * latency / 1000;
-          
-          // Cte and epsi estimate after latency
+          // Cte and epsi estimates after latency
           double cte = polyeval(coeffs, x_car) - y_car;
-          double epsi = atan(coeffs[1] + 2 * coeffs[2] * x_car + 3 * coeffs[3] * pow(x_car,2)) - psi_car;
+          double epsi = psi_car - atan(coeffs[1] + 2 * coeffs[2] * x_car + 3 * coeffs[3] * pow(x_car,2));
           
-          // State vector
+          // State vector after latency
           Eigen::VectorXd state(6);
           state << x_car, y_car, psi_car, v_car, cte, epsi;
           
@@ -142,7 +142,7 @@ int main() {
           auto vars = mpc.Solve(state, coeffs);
 
           // Convert steering angle to [-1, 1] and change sign
-          double steer_value = - vars[0] / deg2rad(25);
+          double steer_value = - vars[0] / ( deg2rad(25) * Lf );
           double throttle_value = vars[1];
 
           json msgJson;
@@ -194,7 +194,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(latency));
+          this_thread::sleep_for(chrono::milliseconds(dt_latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

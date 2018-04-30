@@ -30,13 +30,13 @@ class FG_eval {
     fg[0] = 0;
     
     // Weight variables for the different costs:
-    double cte_cost_weight = 1;
-    double epsi_cost_weight = 1;
+    double cte_cost_weight = 3000;
+    double epsi_cost_weight = 1000;
     double vref_cost_weight = 1;
-    double delta_cost_weight = 1;
-    double a_cost_weight = 1;
-    double delta_change_cost_weight = 1;
-    double a_change_cost_weight = 1;
+    double delta_cost_weight = 10;
+    double a_cost_weight = 10;
+    double delta_change_cost_weight = 250;
+    double a_change_cost_weight = 25;
     
     // Cost based on the reference state and reference velocity
     for (int t = 0; t < N; t++) {
@@ -56,9 +56,6 @@ class FG_eval {
       fg[0] += delta_change_cost_weight * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += a_change_cost_weight * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
-    
-    // DEBUG -->
-    cout << "Cost: " << fg[0] << endl;
     
     //
     // Setup Constraints
@@ -100,8 +97,8 @@ class FG_eval {
       AD<double> a0 = vars[a_start + t - 1];
       
       // Reference for cte and epsi
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> psides0 = CppAD::atan(coeffs[1]);
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * pow(x0, 2) + coeffs[3] * pow(x0, 3);
+      AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * pow(x0, 2));
       
       // Constraints
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
@@ -124,10 +121,6 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   bool ok = true;
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
-  // DEBUG -->
-  cout << "State vector: " << state[0] << "\t" << state[1] << "\t" << state[2] << "\t" << state[3] << "\t" << state[4] << "\t" << state[5] << endl;
-  cout << "Trajectory coeffs: " << coeffs[0] << "\t" << coeffs[1] << "\t" << coeffs[2] << "\t" << coeffs[3] << endl;
-  
   // Rename initial state values to ease coding
   double x = state[0];
   double y = state[1];
@@ -137,10 +130,6 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   double epsi = state[5];
   
   // Set the number of model variables (includes both states and inputs).
-  // For example: If the state is a 4 element vector, the actuators is a 2
-  // element vector and there are 10 timesteps. The number of variables is:
-  //
-  // 4 * 10 + 2 * 9
   // 6 variables: x, y, psi, v, cte, epsi + 2 actuators delta, a
   // multiply by N timesteps (N-1 for actuators)
   size_t n_vars = 6 * N + 2 * (N - 1);
@@ -149,7 +138,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   size_t n_constraints = 6 * N;
 
   // Initial value of the independent variables.
-  // SHOULD BE 0 besides initial state.
+  // SHOULD BE 0 other than initial state.
   Dvector vars(n_vars);
   for (int i = 0; i < n_vars; i++) {
     vars[i] = 0;
@@ -234,7 +223,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   options += "Sparse  true        reverse\n";
   // NOTE: Currently the solver has a maximum time limit of 0.5 seconds.
   // Change this as you see fit.
-  options += "Numeric max_cpu_time          0.5\n";
+  options += "Numeric max_cpu_time         50.0\n";
 
   // place to return solution
   CppAD::ipopt::solve_result<Dvector> solution;
@@ -258,7 +247,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // creates a 2 element double vector.
   
   // return actuators at time 0
-  vector<double> result = {solution.x[delta_start], solution.x[a_start]};
+  vector<double> result;
+  result.push_back(solution.x[delta_start]);
+  result.push_back(solution.x[a_start]);
   
   // add calculate x points
   for (int t = 0; t < N; t++){
