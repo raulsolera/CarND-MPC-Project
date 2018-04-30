@@ -6,9 +6,12 @@ Udacity Self-Driving Car Engineer Nanodegree Program - Term 2, Project 5
 ## Introduction
 This project consist in the implementation of an MPC controller in C++ such that a car can drive around a virtual track using the Term 2 Simulator. The simulated car's actuators have a 100ms latency (delay) that must be taken into account.
 
-A kinematic model will be used being the state represented by 4 variables: x and y position (with respect to car initial coordinates) angle psi and velocity v /velocity.
+A kinematic model will be used, being the state represented by 4 variables: x and y position (with respect to car initial coordinates), angle psi and velocity v.
+
 The model will predict values for 2 actuators delta (change in angle) and a (acceleration).
+
 The error will be measure by the CTE (cross track error or deviation from the optimal trajectory) and epsi (deviation from the direction of the optimal trajectory).
+
 The transition equations of the model are given by:
 - x[t+1] = x[t] + v[t] * cos(psi[t]) * dt
 - y[t+1] = y[t] + v[t] * sin(psi[t]) * dt
@@ -21,7 +24,7 @@ The transition equations of the model are given by:
 The MPC model pipeline consists in the following steps:
 - Obtaining the optimal trajectory (in this project it will be given by the simulator: vector ptsx and ptsy in main.cpp) and approximate it by a 3rd degree polynomial.
 - Obtaining the actual state of the car and actuators.
-- Consider latency to predict state and errors (cte and epsi) in the moment that the actuators predicted will be effective.
+- Consider latency to predict state and errors (cte and epsi) in the moment that the actuators predicted will be effective (after latency time).
 - Pass predicted state and coefficients of the optimal trajectory to the optimizer (ipopt will be used)
 - Apply optimal actuators returned by the optimizer to the car and start again the pipeline loop.
 
