@@ -1,7 +1,40 @@
 # CarND-Controls-MPC
-Self-Driving Car Engineer Nanodegree Program
+Udacity Self-Driving Car Engineer Nanodegree Program - Term 2, Project 5
 
 ---
+
+## Introduction
+This project consist in the implementation of an MPC controller in C++ such that a car can drive around a virtual track using the Term 2 Simulator. The simulated car's actuators have a 100ms latency (delay) that must be taken into account.
+
+A kinematic model will be used being the state represented by 4 variables: x and y position (with respect to car initial coordinates) angle psi and velocity v /velocity.
+The model will predict values for 2 actuators delta (change in angle) and a (acceleration).
+The error will be measure by the CTE (cross track error or deviation from the optimal trajectory) and epsi (deviation from the direction of the optimal trajectory).
+The transition equations of the model are given by:
+- x[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+- y[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+- psi[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+- v[t+1] = v[t] + a[t] * dt
+- cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
+- epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
+
+### Project pipeline
+The MPC model pipeline consists in the following steps:
+- Obtaining the optimal trajectory (in this project it will be given by the simulator: vector ptsx and ptsy in main.cpp) and approximate it by a 3rd degree polynomial.
+- Obtaining the actual state of the car and actuators.
+- Consider latency to predict state and errors (cte and epsi) in the moment that the actuators predicted will be effective.
+- Pass predicted state and coefficients of the optimal trajectory to the optimizer (ipopt will be used)
+- Apply optimal actuators returned by the optimizer to the car and start again the pipeline loop.
+
+### Parameter settings and tuning up
+There are 2 groups of parameters to tune the model:
+- In one hand the number of steps N and the time of each step dt must be specify.
+- On the other hand the cost function has to be tune up to obtain optimal results. This implies considering terms other than CTE and epsi. In example: difference with a reference velocity, magnitude of the actuators or magnitude of the change in the actuators. For this project all the previous terms will be considered applying a certain weight to each one and the tuning up will be done changing the weights.
+
+## Results and reflection
+After some tuning up the model is able to drive the car in a smooth way reaching velocities over 90 mph, by far much better results than that of the PID controller.
+- Values of N = 12 and dt = 0.1 where used. Lower values of N implies lower accuracy and the car sometimes gets out of the road. Higher values suppose a too high computational cost not at reach for any computer (not in fact for my 10 years old laptop). Timesteps below the latency time suppose a waste of computational resources and over it will produce inaccurate results.
+- In the case of the cost, higher weights of 3000 and 1000 are assigned to CTE and epsi and lower ones (in the order of 2 or 3 orders of magnitude) to the rest with the exception of the change in delta actuator that greatly improves the smoothness of the driving.
+
 
 ## Dependencies
 
@@ -37,72 +70,3 @@ Self-Driving Car Engineer Nanodegree Program
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./mpc`.
-
-## Tips
-
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.)
-4.  Tips for setting up your environment are available [here](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/f758c44c-5e40-4e01-93b5-1a82aa4e044f/concepts/23d376c7-0195-4276-bdf0-e02f1f3c665d)
-5. **VM Latency:** Some students have reported differences in behavior using VM's ostensibly a result of latency.  Please let us know if issues arise as a result of a VM environment.
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
-
-## Hints!
-
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
